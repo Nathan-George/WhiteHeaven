@@ -28,7 +28,7 @@ class PuzzlePiece:
         corners = tools.find_corners(contour)
         self.edges = []
         for i in range(4):
-            self.edges.append(tools.get_slice_circular(contour, corners[i-1]-corner_size, corners[i]+corner_size))
+            self.edges.append(tools.get_slice_circular(contour, corners[i-1]+corner_size, corners[i]-corner_size))
         
         # determine what type of edge each edge is ("flat", "inner", "outer")
         self.edge_types = []
@@ -42,7 +42,7 @@ class PuzzlePiece:
         
         self.normalized_edges = []
         for i in range(4):
-            self.normalized_edges.append(tools.normalize_edge(self.expanded_edges[i]))
+            self.normalized_edges.append(tools.normalize_edge(self.expanded_edges[i], self.edge_types[i]))
     
     def compare_edges(self, edges, types, skipping=1):
         """Compares the edges of this piece to the edges of another piece.

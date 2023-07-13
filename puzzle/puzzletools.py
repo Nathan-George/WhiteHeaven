@@ -245,7 +245,7 @@ def expand_edge(edge, pixels, window_size=5):
         start  = edge[max(0, i - window_size)]
         end = edge[min(len(edge)-1, i + window_size)]
         
-        normal = np.array([-(end[1] - start[1]), end[0] - start[0]])
+        normal = np.array([-(end[1] - start[1]), end[0] - start[0]]).astype(np.float32)
         normal *= pixels / np.linalg.norm(normal)
         
         expanded_edge[i] = point + normal
@@ -271,7 +271,7 @@ def normalize_edge(edge, type):
     normalized_edge -= normalized_edge[0]
     
     tangent = normalized_edge[-1] - normalized_edge[0]
-    return np.dot(normalized_edge, np.array([[tangent[0], tangent[1]], [-tangent[1], tangent[0]]])) / np.linalg.norm(tangent)
+    return np.dot(normalized_edge, np.array([[tangent[0], -tangent[1]], [tangent[1], tangent[0]]])) / np.linalg.norm(tangent)
 
 def compare_edges_DTW(edge1, edge2):
     """ compares edges using dynamic time warping
