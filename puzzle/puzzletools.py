@@ -200,3 +200,94 @@ def find_corners(contour, corner_size=40):
     # find the 4 best corners
     p_corners = np.array(p_corners)
     return np.sort(p_corners[np.argsort(indicators[p_corners])[:-5:-1]])
+
+
+def get_edge_type(edge):
+    """determines whether the edge of a puzzle piece is flat, inner, or outer
+
+    Args:
+        edge : array of 2d points that make up the edge
+    
+    Returns:
+        str: 'flat', 'inner', or 'outer'
+    """
+    
+    tangent = edge[-1] - edge[0]
+    
+    average_distance = 0
+    for i in range(len(edge)):
+        average_distance += np.cross(tangent, edge[i] - edge[0])
+    average_distance /= np.linalg.norm(tangent) * len(edge)
+    
+    if average_distance > 4:
+        return 'outer'
+    
+    if average_distance < -4:
+        return 'inner'
+    
+    return 'flat'
+
+def expand_edge(edge, pixels, window_size=5):
+    """Expands the edge by a certain number of pixels
+
+    Args:
+        edge : array of 2d points that make up the edge
+        pixels (int): number of pixels to expand the edge by
+
+    Returns:
+        np.array(len(edge), 2): the expanded edge
+    """
+    
+    expanded_edge = np.zeros((len(edge), 2))
+    
+    for i in range(len(edge)):
+        point = edge[i]
+        start  = edge[max(0, i - window_size)]
+        end = edge[min(len(edge)-1, i + window_size)]
+        
+        normal = np.array([-(end[1] - start[1]), end[0] - start[0]])
+        normal *= pixels / np.linalg.norm(normal)
+        
+        expanded_edge[i] = point + normal
+    
+    return expanded_edge
+
+def normalize_edge(edge, type):
+    """Normalizes the edge so starts at the origen and lies along the x axis
+    
+    Args:
+        edge : array of 2d points that make up the edge
+        pixels (str): either 'flat', 'inner', or 'outer'
+        
+    
+    Returns:
+        np.array(len(edge), 2): the normalized edge
+    """
+    
+    normalized_edge = np.copy(edge)
+    if type == 'inner':
+        normalized_edge = normalized_edge[::-1]
+    
+    normalized_edge -= normalized_edge[0]
+    
+    tangent = normalized_edge[-1] - normalized_edge[0]
+    return np.dot(normalized_edge, np.array([[tangent[0], tangent[1]], [-tangent[1], tangent[0]]])) / np.linalg.norm(tangent)
+
+def compare_edges_DTW(edge1, edge2):
+    """ compares edges using dynamic time warping
+
+    Args:
+        edge1 (np.array): edge to compare
+        edge2 (np.array): edge to compare against
+
+    Returns:
+        float: score of the comparison (lower is better)
+    """
+    D = np.full((edge1.shape[0], edge2.shape[0]), np.inf)
+    D[0, 0] = 0
+    
+    for i in range(1, edge1.shape[0]):
+        for j in range(1, edge2.shape[0]):
+            D[i, j] = np.power(edge1[i][0]-edge2[j][0], 2) + np.power(edge1[i][1]-edge2[j][1], 2) + min(D[i - 1, j], D[i, j - 1], D[i - 1, j - 1])
+    
+    return D[-1, -1]
