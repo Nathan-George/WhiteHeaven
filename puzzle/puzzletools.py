@@ -39,11 +39,11 @@ def get_slice_circular(contour, start, end):
         end += len(contour)
     
     # make sure end is larger than start
-    if end < start:
+    if end <= start:
         end += len(contour)
-    
+        
     if end > len(contour):
-        return np.concatenate((contour[start:], contour[:end - len(contour)]))
+        return np.concatenate((contour[start:], contour[:end - len(contour)]), axis=0)
     
     return contour[start:end]
 
