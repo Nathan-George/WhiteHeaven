@@ -1,7 +1,9 @@
 import numpy as np
 import cv2
 
-import puzzletools as tools
+from scipy.spatial import KDTree
+
+import puzzle.lib.puzzletools as tools
 
 # data structures for solving the puzzle
 
@@ -24,7 +26,7 @@ class PuzzlePiece:
         self.contour = contour
         
         # split the contour into 4 edges
-        corner_size = 10
+        corner_size = 1
         corners = tools.find_corners(contour)
         self.edges = []
         for i in range(4):
@@ -38,11 +40,15 @@ class PuzzlePiece:
         # expand the edges by 2 pixels so they line up better
         self.expanded_edges = []
         for i in range(4):
-            self.expanded_edges.append(tools.expand_edge(self.edges[i], pixels=2))
+            self.expanded_edges.append(tools.expand_edge(self.edges[i], pixels=2.7))
         
         self.normalized_edges = []
         for i in range(4):
             self.normalized_edges.append(tools.normalize_edge(self.expanded_edges[i], self.edge_types[i]))
+        
+        self.edge_kdtrees = []
+        for i in range(4):
+            self.edge_kdtrees.append(KDTree(self.normalized_edges[i]))
     
     def compare_edges(self, edges, types, skipping=1):
         """Compares the edges of this piece to the edges of another piece.

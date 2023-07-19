@@ -1,6 +1,8 @@
 import numpy as np
 import cv2
 
+from scipy.spatial import KDTree
+
 # we need to access the points of the contour in a circular manner
 def get_circular(contour, index):
     """Gets the point at the index of the contour, 
@@ -47,7 +49,7 @@ def get_slice_circular(contour, start, end):
     
     return contour[start:end]
 
-def get_contour(puzzle_piece_img):
+def get_contour(puzzle_piece_img, threshold=200):
     """gets the contour of the puzzle piece
 
     Args:
@@ -58,7 +60,7 @@ def get_contour(puzzle_piece_img):
     """
     img_gray = cv2.cvtColor(puzzle_piece_img, cv2.COLOR_BGR2GRAY)
     # Threshold the image
-    _, img_thresh = cv2.threshold(img_gray, 200, 255, cv2.THRESH_BINARY)
+    _, img_thresh = cv2.threshold(img_gray, threshold, 255, cv2.THRESH_BINARY)
     contours, _ = cv2.findContours(img_thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     contours = sorted(contours, key=cv2.contourArea, reverse=True)
     
@@ -252,6 +254,27 @@ def expand_edge(edge, pixels, window_size=5):
     
     return expanded_edge
 
+# def normalize_edge(edge, type):
+#     """Normalizes the edge so starts at the origen and lies along the x axis
+    
+#     Args:
+#         edge : array of 2d points that make up the edge
+#         pixels (str): either 'flat', 'inner', or 'outer'
+        
+    
+#     Returns:
+#         np.array(len(edge), 2): the normalized edge
+#     """
+    
+#     normalized_edge = np.copy(edge)
+#     if type == 'inner':
+#         normalized_edge = normalized_edge[::-1]
+    
+#     normalized_edge -= normalized_edge[0]
+    
+#     tangent = normalized_edge[-1] - normalized_edge[0]
+#     return np.dot(normalized_edge, np.array([[tangent[0], -tangent[1]], [tangent[1], tangent[0]]])) / np.linalg.norm(tangent)
+
 def normalize_edge(edge, type):
     """Normalizes the edge so starts at the origen and lies along the x axis
     
@@ -267,8 +290,19 @@ def normalize_edge(edge, type):
     normalized_edge = np.copy(edge)
     if type == 'inner':
         normalized_edge = normalized_edge[::-1]
+        
+    # find center of the puzzle piece
+    length = len(normalized_edge)
+    center = np.array([0.0, 0.0])
+    total = 0
+    for i in range(length):
+        density = 6 / np.linalg.norm(normalized_edge[min(length-1, i+3)] - normalized_edge[max(0, i-3)])
+        weight = np.exp(-(i/length-0.5)**2) / density
+        center += normalized_edge[i] * weight
+        total += weight
+    center /= total
     
-    normalized_edge -= normalized_edge[0]
+    normalized_edge -= center
     
     tangent = normalized_edge[-1] - normalized_edge[0]
     return np.dot(normalized_edge, np.array([[tangent[0], -tangent[1]], [tangent[1], tangent[0]]])) / np.linalg.norm(tangent)
@@ -291,3 +325,17 @@ def compare_edges_DTW(edge1, edge2):
             D[i, j] = np.power(edge1[i][0]-edge2[j][0], 2) + np.power(edge1[i][1]-edge2[j][1], 2) + min(D[i - 1, j], D[i, j - 1], D[i - 1, j - 1])
     
     return D[-1, -1]
+
+def compare_edge_kdtrees(tree1 : KDTree, tree2 : KDTree):
+    """compares edges using kdtrees
+
+    Args:
+        tree1 (KDTree): tree to compare
+        tree2 (KDTree): tree to compare against
+
+    Returns:
+        float: score of the comparison (lower is better)
+    """
+    
+    return np.sum(tree1.query(tree2.data)[0])
+    
