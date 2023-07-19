@@ -6,7 +6,21 @@ from scipy.spatial import KDTree
 import puzzle.lib.puzzletools as tools
 
 # data structures for solving the puzzle
-
+class Edge:
+    """An edge of a puzzle piece. Used for comparing edges of a puzzle piece to other puzzle pieces
+    """
+    
+    def __init__(self, points=None, type=None):
+        if points is None:
+            self.points = None
+            self.type = type
+            return
+        
+        self.points = points
+        self.type = tools.get_edge_type(points)
+        self.expanded = tools.expand_edge(points, pixels=2.7)
+        self.normalized = tools.normalize_edge(self.expanded, self.type)
+        self.kd_tree = KDTree(self.normalized)
 
 class PuzzlePiece:
     """A puzzle piece. Used for comparing edges of a puzzle piece to other puzzle pieces
@@ -30,48 +44,31 @@ class PuzzlePiece:
         corners = tools.find_corners(contour)
         self.edges = []
         for i in range(4):
-            self.edges.append(tools.get_slice_circular(contour, corners[i-1]+corner_size, corners[i]-corner_size))
-        
-        # determine what type of edge each edge is ("flat", "inner", "outer")
-        self.edge_types = []
-        for i in range(4):
-            self.edge_types.append(tools.get_edge_type(self.edges[i]))
-        
-        # expand the edges by 2 pixels so they line up better
-        self.expanded_edges = []
-        for i in range(4):
-            self.expanded_edges.append(tools.expand_edge(self.edges[i], pixels=2.7))
-        
-        self.normalized_edges = []
-        for i in range(4):
-            self.normalized_edges.append(tools.normalize_edge(self.expanded_edges[i], self.edge_types[i]))
-        
-        self.edge_kdtrees = []
-        for i in range(4):
-            self.edge_kdtrees.append(KDTree(self.normalized_edges[i]))
+            points = tools.get_slice_circular(contour, corners[i-1]+corner_size, corners[i]-corner_size)
+            self.edges.append(Edge(points))
     
-    def compare_edges(self, edges, types, skipping=1):
+    def compare_edges(self, edges):
         """Compares the edges of this piece to the edges of another piece.
         Returns the total difference between the edges.
         """
         
         # first compare the edge types
         for i in range(4):
-            if types[i] is None:
+            if edges[i].type is None:
                 continue
-            if types[i] == 'inner' and self.edge_types[i] != 'outer':
+            if edges[i].type == 'inner' and self.edges[i].type != 'outer':
                 return np.inf
-            if types[i] == 'outer' and self.edge_types[i] != 'inner':
+            if edges[i].type == 'outer' and self.edges[i].type != 'inner':
                 return np.inf
-            if types[i] == 'flat' and self.edge_types[i] != 'flat':
+            if edges[i].type == 'flat' and self.edges[i].type != 'flat':
                 return np.inf
         
         
         difference = 0
         for i in range(4):
-            if edges[i] is None:
+            if edges[i].points is None:
                 continue
-            difference += tools.compare_edges_DTW(self.normalized_edges[i][::skipping], edges[i][::skipping])
+            difference += tools.compare_edge_kd_trees(self.edges[i].kd_tree, edges[i].kd_tree)
         return difference
     
 class Puzzle:
@@ -117,7 +114,7 @@ class Puzzle:
         
     
     def solve_piece(self, x, y):
-        edges, edge_types = self.get_pocket(x, y)
+        edges = self.get_pocket(x, y)
         
         # setup the indices
         indices = np.zeros((len(self.pieces_left) * 4, 2), dtype=np.int32)
@@ -128,15 +125,11 @@ class Puzzle:
                 i += 1
         
         # speeds up solving drastically
-        indices, _ = self.sort_indices(indices, edges, edge_types, 5)
-        indices = indices[:100]
-        indices, _ = self.sort_indices(indices, edges, edge_types, 2)
-        indices = indices[:10]
-        indices, differences = self.sort_indices(indices, edges, edge_types, 1)
+        indices, differences = self.sort_indices(indices, edges)
         
         return indices, differences
     
-    def sort_indices(self, indices, edges, edge_types, skipping=1):
+    def sort_indices(self, indices, edges):
         """sorts the indices by the difference between the edges
 
         Args:
@@ -150,8 +143,7 @@ class Puzzle:
         i = 0
         for piece, j in indices:
             edges_rot = edges[-j:] + edges[:-j]
-            edge_types_rot = edge_types[-j:] + edge_types[:-j]
-            differences[i] = self.pieces[piece].compare_edges(edges_rot, edge_types_rot, skipping)
+            differences[i] = self.pieces[piece].compare_edges(edges_rot)
             i += 1
         
         sort = np.argsort(differences)
@@ -163,15 +155,12 @@ class Puzzle:
         """
         
         edges = [None for i in range(4)]
-        edge_types = [None for i in range(4)]
         
         order = [[0, 1], [-1, 0], [0, -1], [1, 0]]
         for i, direction in enumerate(order):
-            edge, type = self.get_edge(x+direction[0], y+direction[1], i)
-            edges[(i + 2) % 4] = edge
-            edge_types[(i + 2) % 4] = type
+            edges[(i + 2) % 4] = self.get_edge(x+direction[0], y+direction[1], i)
             
-        return edges, edge_types
+        return edges
     
     def get_edge(self, x, y, edge):
         """Returns the edge of the piece at (x, y), and the type of edge it is.
@@ -183,24 +172,24 @@ class Puzzle:
         """
         
         if y == self.shape[0] and edge == 0:
-            return None, "flat"
+            return Edge(None, "flat")
         if x == -1 and edge == 1:
-            return None, "flat"
+            return Edge(None, "flat")
         if y == -1 and edge == 2:
-            return None, "flat"
+            return Edge(None, "flat")
         if x == self.shape[1] and edge == 3:
-            return None, "flat"
+            return Edge(None, "flat")
         
         if not self.point_in_bounds(x, y):
-            return None, None
+            return Edge(None, None)
         
         index = self.board[y, x]
         if index == Puzzle.EMPTY:
-            return None, None
+            return Edge(None, None)
         piece = self.pieces[index]
         
         rot_edge = (edge + self.rotations[y, x]) % 4
-        return piece.normalized_edges[rot_edge], piece.edge_types[rot_edge]
+        return piece.edges[rot_edge]
         
     def point_in_bounds(self, x, y):
         """Returns true if the point is in bounds of the puzzle

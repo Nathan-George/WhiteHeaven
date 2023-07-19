@@ -326,7 +326,7 @@ def compare_edges_DTW(edge1, edge2):
     
     return D[-1, -1]
 
-def compare_edge_kdtrees(tree1 : KDTree, tree2 : KDTree):
+def compare_edge_kd_trees(tree1 : KDTree, tree2 : KDTree):
     """compares edges using kdtrees
 
     Args:
