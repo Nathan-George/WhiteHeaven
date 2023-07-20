@@ -3,7 +3,7 @@ import cv2
 
 from scipy.spatial import KDTree
 
-import puzzle.lib.puzzletools as tools
+import lib.puzzletools as tools
 
 # data structures for solving the puzzle
 class Edge:
@@ -18,9 +18,25 @@ class Edge:
         
         self.points = points
         self.type = tools.get_edge_type(points)
-        self.expanded = tools.expand_edge(points, pixels=2.7)
+        self.expanded = tools.expand_edge(points, 2.3)
         self.normalized = tools.normalize_edge(self.expanded, self.type)
+        self.tangents = tools.get_tangents(self.normalized)
         self.kd_tree = KDTree(self.normalized)
+    
+    def compare_kd_trees(self, other : 'Edge', threads=1):
+        """Compares the edge to another edge using a KDTree
+        """
+        
+        
+        #TODO: check all points among the two edges
+        distances, indices = self.kd_tree.query(other.kd_tree.data, workers=threads)
+            
+        return np.sum(distances) / len(distances)
+        #return np.sum(np.abs(np.cross(other.normalized - self.normalized[indices], other.tangents))) / len(distances)
+            
+            
+        
+        
 
 class PuzzlePiece:
     """A puzzle piece. Used for comparing edges of a puzzle piece to other puzzle pieces
@@ -65,11 +81,16 @@ class PuzzlePiece:
         
         
         difference = 0
+        num_edges = 0
         for i in range(4):
             if edges[i].points is None:
                 continue
-            difference += tools.compare_edge_kd_trees(self.edges[i].kd_tree, edges[i].kd_tree)
-        return difference
+            difference += self.edges[i].compare_kd_trees(edges[i])
+            num_edges += 1
+            
+        if num_edges == 0:
+            return 0
+        return difference / num_edges
     
 class Puzzle:
     """The set of all solved pieces in the puzzle
@@ -111,7 +132,16 @@ class Puzzle:
         self.pieces_left.remove(piece)
         self.board[y, x] = piece
         self.rotations[y, x] = i
+    
+    def remove_piece(self, x, y):
+        assert self.point_in_bounds(x, y)
         
+        if self.board[y, x] == Puzzle.EMPTY:
+            return
+        
+        self.pieces_left.append(self.board[y, x])
+        self.board[y, x] = Puzzle.EMPTY
+        self.rotations[y, x] = 0
     
     def solve_piece(self, x, y):
         edges = self.get_pocket(x, y)

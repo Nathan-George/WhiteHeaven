@@ -307,6 +307,15 @@ def normalize_edge(edge, type):
     tangent = normalized_edge[-1] - normalized_edge[0]
     return np.dot(normalized_edge, np.array([[tangent[0], -tangent[1]], [tangent[1], tangent[0]]])) / np.linalg.norm(tangent)
 
+def get_tangents(edge, window_size=5):
+    tangents = np.zeros((len(edge), 2))
+    
+    for i in range(len(edge)):
+        tangents[i] = edge[min(len(edge)-1, i + window_size)] - edge[max(0, i - window_size)]
+        tangents[i] /= np.linalg.norm(tangents[i])
+    
+    return tangents
+
 def compare_edges_DTW(edge1, edge2):
     """ compares edges using dynamic time warping
 
@@ -325,17 +334,4 @@ def compare_edges_DTW(edge1, edge2):
             D[i, j] = np.power(edge1[i][0]-edge2[j][0], 2) + np.power(edge1[i][1]-edge2[j][1], 2) + min(D[i - 1, j], D[i, j - 1], D[i - 1, j - 1])
     
     return D[-1, -1]
-
-def compare_edge_kd_trees(tree1 : KDTree, tree2 : KDTree):
-    """compares edges using kdtrees
-
-    Args:
-        tree1 (KDTree): tree to compare
-        tree2 (KDTree): tree to compare against
-
-    Returns:
-        float: score of the comparison (lower is better)
-    """
-    
-    return np.sum(tree1.query(tree2.data)[0])
     
