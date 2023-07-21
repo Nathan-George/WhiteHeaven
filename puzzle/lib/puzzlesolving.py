@@ -23,12 +23,12 @@ class Edge:
         self.tangents = tools.get_tangents(self.normalized)
         self.kd_tree = KDTree(self.normalized)
     
-    def compare_kd_trees(self, other : 'Edge', threads=1):
+    def compare_kd_trees(self, other : 'Edge'):
         """Compares the edge to another edge using a KDTree
         """
         
         #TODO: check all points among the two edges
-        distances, indices = self.kd_tree.query(other.kd_tree.data, workers=threads)
+        distances, indices = self.kd_tree.query(other.kd_tree.data)
             
         return np.sum(distances) / len(distances)
         #return np.sum(np.abs(np.cross(other.normalized - self.normalized[indices], other.tangents))) / len(distances)

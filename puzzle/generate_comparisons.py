@@ -56,6 +56,7 @@ def main():
                 continue
             
             if piece1 == piece2:
+                comparison_scores_dataset[piece1, i1, piece2, i2] = np.inf
                 continue
             
             # do not compare edges of the same type (inner to inner, outer to outer, etc)
@@ -63,26 +64,10 @@ def main():
                 comparison_scores_dataset[piece1, i1, piece2, i2] = np.inf
             
             # compare the edges
-            comparison_scores_dataset[piece1, i1, piece2, i2] = edge1.compare_kd_trees(edge2, threads=1)
-    
-    # sub dataset of sorted comparisons
-    num_comparisons = 64
-    # store the 64 best comparisons for each edge
-    sorted_scores_dataset = np.zeros((len(pieces), 4, num_comparisons), dtype=np.float32)
-    sorted_pieces_dataset = np.zeros((len(pieces), 4, num_comparisons), dtype=np.int32)
-    sorted_indices_dataset = np.zeros((len(pieces), 4, num_comparisons), dtype=np.int32)
-    
-    for piece, i in tqdm(indices, 'sorting'):
-        comparison_scores = comparison_scores_dataset[piece, i, :, :]
-        flattened_scores = comparison_scores.flatten()
-        sort = np.argsort(flattened_scores)[:num_comparisons]
-        
-        sorted_pieces_dataset, sorted_indices_dataset = np.unravel_index(sort, comparison_scores.shape)
-        sorted_scores_dataset[piece, i, :] = flattened_scores[sort]
+            comparison_scores_dataset[piece1, i1, piece2, i2] = edge1.compare_kd_trees(edge2)
     
     print('saving')
     np.save('puzzle/data/comparison_scores.npy', comparison_scores_dataset)
-    np.savez('puzzle/data/sorted_scores.npz', scores=sorted_scores_dataset, pieces=sorted_pieces_dataset, indices=sorted_indices_dataset)
 
 if __name__ == '__main__':
     main()
