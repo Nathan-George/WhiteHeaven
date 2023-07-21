@@ -27,7 +27,6 @@ class Edge:
         """Compares the edge to another edge using a KDTree
         """
         
-        
         #TODO: check all points among the two edges
         distances, indices = self.kd_tree.query(other.kd_tree.data, workers=threads)
             

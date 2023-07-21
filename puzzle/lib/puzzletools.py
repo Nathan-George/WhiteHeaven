@@ -217,9 +217,12 @@ def get_edge_type(edge):
     tangent = edge[-1] - edge[0]
     
     average_distance = 0
+    total_weight = 0
     for i in range(len(edge)):
-        average_distance += np.cross(tangent, edge[i] - edge[0])
-    average_distance /= np.linalg.norm(tangent) * len(edge)
+        weight = np.exp(-(i/len(edge)-0.5)**2)
+        total_weight += weight
+        average_distance += np.cross(tangent, edge[i] - edge[0]) * weight
+    average_distance /= np.linalg.norm(tangent) * total_weight
     
     if average_distance > 4:
         return 'outer'
@@ -253,27 +256,6 @@ def expand_edge(edge, pixels, window_size=5):
         expanded_edge[i] = point + normal
     
     return expanded_edge
-
-# def normalize_edge(edge, type):
-#     """Normalizes the edge so starts at the origen and lies along the x axis
-    
-#     Args:
-#         edge : array of 2d points that make up the edge
-#         pixels (str): either 'flat', 'inner', or 'outer'
-        
-    
-#     Returns:
-#         np.array(len(edge), 2): the normalized edge
-#     """
-    
-#     normalized_edge = np.copy(edge)
-#     if type == 'inner':
-#         normalized_edge = normalized_edge[::-1]
-    
-#     normalized_edge -= normalized_edge[0]
-    
-#     tangent = normalized_edge[-1] - normalized_edge[0]
-#     return np.dot(normalized_edge, np.array([[tangent[0], -tangent[1]], [tangent[1], tangent[0]]])) / np.linalg.norm(tangent)
 
 def normalize_edge(edge, type):
     """Normalizes the edge so starts at the origen and lies along the x axis
